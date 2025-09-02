@@ -2,6 +2,10 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
+
+const TRELLIS_VERSION =
+  "e8f6c45206993f297372f5436b90350817bd9b4a0d52d2a76df50c1c8afa2b3c";
+
 require("dotenv").config();
 
 const app = express();
@@ -27,15 +31,16 @@ app.post("/generate", async (req, res) => {
     const createResp = await axios.post(
       "https://api.replicate.com/v1/predictions",
       {
-        version: "8aeee50b868f06a1893e3b95a8bb639a8342e846836f3e0211d6a13c158505b1",
-        input
+        version:
+          "8aeee50b868f06a1893e3b95a8bb639a8342e846836f3e0211d6a13c158505b1",
+        input,
       },
       {
         headers: {
           Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        timeout: 15000
+        timeout: 15000,
       }
     );
 
@@ -46,28 +51,115 @@ app.post("/generate", async (req, res) => {
     let status = createResp.data.status;
     let last = createResp.data;
 
-    while (status !== "succeeded" && status !== "failed" && status !== "canceled") {
+    while (
+      status !== "succeeded" &&
+      status !== "failed" &&
+      status !== "canceled"
+    ) {
       if (Date.now() - started > 120000) {
-        return res.status(504).json({ error: "Replicate polling timeout", last });
+        return res
+          .status(504)
+          .json({ error: "Replicate polling timeout", last });
       }
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 2000));
       const pollResp = await axios.get(
         `https://api.replicate.com/v1/predictions/${predictionId}`,
-        { headers: { Authorization: `Token ${process.env.REPLICATE_API_TOKEN}` }, timeout: 15000 }
+        {
+          headers: {
+            Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+          },
+          timeout: 15000,
+        }
       );
       last = pollResp.data;
       status = last.status;
     }
 
     if (status === "succeeded") {
-      return res.json(last);                 // 保留原始返回，前端可从 last.output 取结果
+      return res.json(last); // 保留原始返回，前端可从 last.output 取结果
     } else {
-      return res.status(502).json({ error: `Replicate ${status}`, detail: last });
+      return res
+        .status(502)
+        .json({ error: `Replicate ${status}`, detail: last });
     }
   } catch (err) {
     const detail = err.response?.data || err.message || "unknown_error";
     console.error("Replicate error:", detail);
-    return res.status(500).json({ error: "Failed to call Replicate API", detail });
+    return res
+      .status(500)
+      .json({ error: "Failed to call Replicate API", detail });
+  }
+});
+
+// 图 -> 3D：用户在前端选定一张图片后，把图片 URL 传进来
+app.post("/mesh", async (req, res) => {
+  try {
+    const { imageUrl, ...rest } = req.body || {};
+    if (!imageUrl) {
+      return res.status(400).json({ error: "Provide imageUrl" });
+    }
+    if (!process.env.REPLICATE_API_TOKEN) {
+      return res.status(500).json({ error: "REPLICATE_API_TOKEN not set" });
+    }
+
+    // 1) 创建 trellis 预测
+    const createResp = await axios.post(
+      "https://api.replicate.com/v1/predictions",
+      {
+        version: TRELLIS_VERSION,
+        input: {
+          images: [imageUrl], // trellis 要求数组
+          texture_size: 2048,
+          mesh_simplify: 0.9,
+          generate_model: true,
+          save_gaussian_ply: true,
+          ss_sampling_steps: 38,
+          ...rest, // 可选：你想开放的调参也可以跟着传
+        },
+      },
+      {
+        headers: {
+          Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      }
+    );
+
+    const predictionId = createResp.data.id;
+
+    // 2) 轮询直至完成（3D可能久一点，这里给到180s）
+    const started = Date.now();
+    let status = createResp.data.status;
+    let last = createResp.data;
+
+    while (!["succeeded", "failed", "canceled"].includes(status)) {
+      if (Date.now() - started > 180000) {
+        return res.status(504).json({ error: "Trellis polling timeout", last });
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+      const pollResp = await axios.get(
+        `https://api.replicate.com/v1/predictions/${predictionId}`,
+        {
+          headers: {
+            Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+          },
+          timeout: 15000,
+        }
+      );
+      last = pollResp.data;
+      status = last.status;
+    }
+
+    if (status === "succeeded") {
+      return res.json(last); // 前端从 last.output 里拿 3D 文件链接
+    } else {
+      return res.status(502).json({ error: `Trellis ${status}`, detail: last });
+    }
+  } catch (err) {
+    const detail = err.response?.data || err.message || "unknown_error";
+    console.error("Trellis error:", detail);
+    return res.status(500).json({ error: "Failed to call Trellis", detail });
   }
 });
 
