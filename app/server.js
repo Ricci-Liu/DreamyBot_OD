@@ -31,7 +31,7 @@ app.post("/generate", async (req, res) => {
     const createResp = await axios.post(
       "https://api.replicate.com/v1/predictions",
       {
-        version: "4g6nk23689rmc0cqceqbhd4g0g",
+        version: "imagen-4.0-ultra-generate-001",
         input,
       },
       {
