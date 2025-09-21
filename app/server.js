@@ -112,22 +112,18 @@ app.post("/generate", async (req, res) => {
       input,
     });
 
-    // 读取流内容
-    let output = "";
+    // 收集 Buffer
+    const chunks = [];
     for await (const chunk of outputStream) {
-      output += chunk;
+      chunks.push(Buffer.from(chunk));
     }
-    console.log("Replicate output:", output);
+    const buffer = Buffer.concat(chunks);
 
-    // 尝试解析为 JSON（如果是 JSON 格式）
-    let result;
-    try {
-      result = JSON.parse(output);
-    } catch {
-      result = output;
-    }
+    // 转成 Base64
+    const base64 = buffer.toString("base64");
 
-    return res.json({ output: result });
+    // 返回给前端
+    return res.json({ output: base64, type: "image/jpeg" });
   } catch (err) {
     const detail = err.response?.data || err.message || "unknown_error";
     console.error("Replicate error:", detail);
