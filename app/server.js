@@ -8,6 +8,11 @@ const TRELLIS_VERSION =
 
 require("dotenv").config();
 
+const Replicate = require("replicate");
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+});
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
@@ -16,6 +21,7 @@ app.use(express.json({ limit: "2mb" }));
 app.get("/health", (req, res) => res.status(200).send("ok"));
 app.get("/", (req, res) => res.status(200).send("DreamyBot API ready"));
 
+/*
 // Generate endpoint (proxy to Replicate)
 app.post("/generate", async (req, res) => {
   try {
@@ -87,6 +93,29 @@ app.post("/generate", async (req, res) => {
     return res
       .status(500)
       .json({ error: "Failed to call Replicate API", detail });
+  }
+});
+*/
+
+app.post("/generate", async (req, res) => {
+  try {
+    const input = req.body?.input;
+    if (!input) {
+      return res.status(400).json({ error: "Missing 'input' in request body" });
+    }
+    if (!process.env.REPLICATE_API_TOKEN) {
+      return res.status(500).json({ error: "REPLICATE_API_TOKEN not set" });
+    }
+
+    // 用 SDK 调用模型
+    const output = await replicate.run("google/imagen-4-ultra", { input });
+    return res.json({ output });
+  } catch (err) {
+    const detail = err.response?.data || err.message || "unknown_error";
+    console.error("Replicate error:", detail);
+    return res
+      .status(500)
+      .json({ error: "Failed to call Replicate SDK", detail });
   }
 });
 
