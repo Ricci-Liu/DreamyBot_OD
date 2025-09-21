@@ -108,9 +108,26 @@ app.post("/generate", async (req, res) => {
     }
 
     // 用 SDK 调用模型
-    const output = await replicate.run("google/imagen-4-ultra", { input });
+    const outputStream = await replicate.run("google/imagen-4-ultra", {
+      input,
+    });
+
+    // 读取流内容
+    let output = "";
+    for await (const chunk of outputStream) {
+      output += chunk;
+    }
     console.log("Replicate output:", output);
-    return res.json({ output });
+
+    // 尝试解析为 JSON（如果是 JSON 格式）
+    let result;
+    try {
+      result = JSON.parse(output);
+    } catch {
+      result = output;
+    }
+
+    return res.json({ output: result });
   } catch (err) {
     const detail = err.response?.data || err.message || "unknown_error";
     console.error("Replicate error:", detail);
