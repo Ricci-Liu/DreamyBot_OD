@@ -8,9 +8,10 @@ const TRELLIS_VERSION =
 
 require("dotenv").config();
 
-import { writeFile } from "fs/promises";
-import Replicate from "replicate";
-const replicate = new Replicate();
+const Replicate = require("replicate");
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+});
 
 const app = express();
 app.use(cors());
@@ -108,9 +109,9 @@ app.post("/generate", async (req, res) => {
       return res.status(500).json({ error: "REPLICATE_API_TOKEN not set" });
     }
 
-    const replicate = new Replicate({
-      auth: process.env.REPLICATE_API_TOKEN,
-    });
+    // const replicate = new Replicate({
+    //   auth: process.env.REPLICATE_API_TOKEN,
+    // });
 
     const output = await replicate.run("google/imagen-4-ultra", { input });
 
