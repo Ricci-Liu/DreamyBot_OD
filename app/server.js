@@ -8,6 +8,10 @@ const TRELLIS_VERSION =
 
 require("dotenv").config();
 
+import { writeFile } from "fs/promises";
+import Replicate from "replicate";
+const replicate = new Replicate();
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
@@ -28,20 +32,24 @@ app.post("/generate", async (req, res) => {
     }
 
     // 1) create prediction
-    const createResp = await axios.post(
-      "https://api.replicate.com/v1/predictions",
-      {
-        version: "4g6nk23689rmc0cqceqbhd4g0g",
-        input,
-      },
-      {
-        headers: {
-          Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 15000,
-      }
-    );
+    // const createResp = await axios.post(
+    //   "https://api.replicate.com/v1/predictions",
+    //   {
+    //     version: "4g6nk23689rmc0cqceqbhd4g0g",
+    //     input,
+    //   },
+    //   {
+    //     headers: {
+    //       Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+    //       "Content-Type": "application/json",
+    //     },
+    //     timeout: 15000,
+    //   }
+    // );
+
+    const prediction = await replicate.run("google/imagen-4-ultra", { input });
+
+    return res.json({ output: prediction });
 
     const predictionId = createResp.data.id;
 
