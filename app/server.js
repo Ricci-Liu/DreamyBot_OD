@@ -109,6 +109,7 @@ app.post("/generate", async (req, res) => {
 
     // 用 SDK 调用模型
     const output = await replicate.run("google/imagen-4-ultra", { input });
+    console.log("Replicate output:", output);
     return res.json({ output });
   } catch (err) {
     const detail = err.response?.data || err.message || "unknown_error";
