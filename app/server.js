@@ -21,82 +21,6 @@ app.use(express.json({ limit: "2mb" }));
 app.get("/health", (req, res) => res.status(200).send("ok"));
 app.get("/", (req, res) => res.status(200).send("DreamyBot API ready"));
 
-/*
-// Generate endpoint (proxy to Replicate)
-app.post("/generate", async (req, res) => {
-  try {
-    const input = req.body?.input;
-    if (!input) {
-      return res.status(400).json({ error: "Missing 'input' in request body" });
-    }
-    if (!process.env.REPLICATE_API_TOKEN) {
-      return res.status(500).json({ error: "REPLICATE_API_TOKEN not set" });
-    }
-
-    // 1) create prediction
-    const createResp = await axios.post(
-      "https://api.replicate.com/v1/predictions",
-      {
-        version: "imagen-4.0-ultra-generate-001",
-        input,
-      },
-      {
-        headers: {
-          Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 15000,
-      }
-    );
-
-    const predictionId = createResp.data.id;
-
-    // 2) poll until done (max ~120s)
-    const started = Date.now();
-    let status = createResp.data.status;
-    let last = createResp.data;
-
-    while (
-      status !== "succeeded" &&
-      status !== "failed" &&
-      status !== "canceled"
-    ) {
-      if (Date.now() - started > 120000) {
-        return res
-          .status(504)
-          .json({ error: "Replicate polling timeout", last });
-      }
-      await new Promise((r) => setTimeout(r, 2000));
-      const pollResp = await axios.get(
-        `https://api.replicate.com/v1/predictions/${predictionId}`,
-        {
-          headers: {
-            Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
-          },
-          timeout: 15000,
-        }
-      );
-      last = pollResp.data;
-      status = last.status;
-    }
-
-    if (status === "succeeded") {
-      return res.json(last); // 保留原始返回，前端可从 last.output 取结果
-    } else {
-      return res
-        .status(502)
-        .json({ error: `Replicate ${status}`, detail: last });
-    }
-  } catch (err) {
-    const detail = err.response?.data || err.message || "unknown_error";
-    console.error("Replicate error:", detail);
-    return res
-      .status(500)
-      .json({ error: "Failed to call Replicate API", detail });
-  }
-});
-*/
-
 app.post("/generate", async (req, res) => {
   try {
     const input = req.body?.input;
@@ -202,6 +126,24 @@ app.post("/mesh", async (req, res) => {
     const detail = err.response?.data || err.message || "unknown_error";
     console.error("Trellis error:", detail);
     return res.status(500).json({ error: "Failed to call Trellis", detail });
+  }
+});
+
+// 接口：接收前端传来的 messages 数组，返回模型文本
+app.post("chat", async (req, res) => {
+  try {
+    const { messages } = req.body;
+    // 将前端 messages 直接传给模型（根据模型需求可改成 prompt/string）
+    const input = { messages };
+
+    // 非流式：调用 replicate.run 得到最终结果
+    const output = await replicate.run("openai/gpt-4o", { input });
+
+    // 输出结构视模型而定，直接返回给前端
+    return res.json({ ok: true, output });
+  } catch (err) {
+    console.error("replicate error:", err);
+    return res.status(500).json({ ok: false, error: err.message || err });
   }
 });
 
