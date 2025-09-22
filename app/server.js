@@ -130,7 +130,7 @@ app.post("/mesh", async (req, res) => {
 });
 
 // 接口：接收前端传来的 messages 数组，返回模型文本
-app.post("chat", async (req, res) => {
+app.post("/chat", async (req, res) => {
   try {
     const { messages } = req.body;
     // 将前端 messages 直接传给模型（根据模型需求可改成 prompt/string）
