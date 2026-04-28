@@ -31,23 +31,20 @@ app.post("/generate", async (req, res) => {
       return res.status(500).json({ error: "REPLICATE_API_TOKEN not set" });
     }
 
-    // 用 SDK 调用模型
-    const outputStream = await replicate.run("google/imagen-4-ultra", {
-      input,
+    // ✅ 换成 flux-2-pro
+    const output = await replicate.run("black-forest-labs/flux-2-pro", {
+      input: {
+        prompt: input.prompt,
+        width: 768,
+        height: 1344, // 9:16 比例
+        output_format: "jpg",
+        output_quality: 90,
+      },
     });
 
-    // 收集 Buffer
-    const chunks = [];
-    for await (const chunk of outputStream) {
-      chunks.push(Buffer.from(chunk));
-    }
-    const buffer = Buffer.concat(chunks);
-
-    // 转成 Base64
-    const base64 = buffer.toString("base64");
-
-    // 返回给前端
-    return res.json({ output: base64, type: "image/jpeg" });
+    // flux 直接返回 URL
+    const imageUrl = Array.isArray(output) ? output[0] : output;
+    return res.json({ output: imageUrl });
   } catch (err) {
     const detail = err.response?.data || err.message || "unknown_error";
     console.error("Replicate error:", detail);
@@ -89,7 +86,7 @@ app.post("/mesh", async (req, res) => {
           "Content-Type": "application/json",
         },
         timeout: 15000,
-      }
+      },
     );
 
     const predictionId = createResp.data.id;
@@ -111,7 +108,7 @@ app.post("/mesh", async (req, res) => {
             Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
           },
           timeout: 15000,
-        }
+        },
       );
       last = pollResp.data;
       status = last.status;
