@@ -27,29 +27,37 @@ app.post("/generate", async (req, res) => {
     if (!input) {
       return res.status(400).json({ error: "Missing 'input' in request body" });
     }
-    if (!process.env.REPLICATE_API_TOKEN) {
-      return res.status(500).json({ error: "REPLICATE_API_TOKEN not set" });
-    }
 
-    const output = await replicate.run("black-forest-labs/flux-2-pro", {
-      input: {
-        prompt: input.prompt,
-        width: 768,
-        height: 1344, // 9:16 比例
-        output_format: "jpg",
-        output_quality: 90,
+    const response = await axios.post(
+      "https://api.replicate.com/v1/models/black-forest-labs/flux-2-pro/predictions",
+      {
+        input: {
+          prompt: input.prompt,
+          width: 768,
+          height: 1344,
+          output_format: "jpg",
+          output_quality: 90,
+        },
       },
-    });
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+          "Content-Type": "application/json",
+          Prefer: "wait",
+        },
+        timeout: 60000,
+      },
+    );
 
-    // flux 直接返回 URL
-    const imageUrl = Array.isArray(output) ? output[0] : output;
+    console.log("Flux output:", JSON.stringify(response.data.output));
+    const imageUrl = Array.isArray(response.data.output)
+      ? response.data.output[0]
+      : response.data.output;
+
     return res.json({ output: imageUrl });
   } catch (err) {
-    const detail = err.response?.data || err.message || "unknown_error";
-    console.error("Replicate error:", detail);
-    return res
-      .status(500)
-      .json({ error: "Failed to call Replicate SDK", detail });
+    console.error("Error:", err.response?.data || err.message);
+    return res.status(500).json({ error: err.message });
   }
 });
 
