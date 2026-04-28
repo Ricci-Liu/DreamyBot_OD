@@ -31,7 +31,6 @@ app.post("/generate", async (req, res) => {
       return res.status(500).json({ error: "REPLICATE_API_TOKEN not set" });
     }
 
-    // ✅ 换成 flux-2-pro
     const output = await replicate.run("black-forest-labs/flux-2-pro", {
       input: {
         prompt: input.prompt,
@@ -77,7 +76,7 @@ app.post("/mesh", async (req, res) => {
           generate_model: true,
           save_gaussian_ply: true,
           ss_sampling_steps: 38,
-          ...rest, // 可选：你想开放的调参也可以跟着传
+          ...rest,
         },
       },
       {
